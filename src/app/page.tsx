@@ -11,8 +11,6 @@ type Entry = {
 };
 
 export default function Home() {
-  console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-  console.log("KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -20,17 +18,11 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(false);
+  const [todayLabel, setTodayLabel] = useState("");
+  const [mounted, setMounted] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const todayKey = () => new Date().toISOString().slice(0, 10);
-
-  const todayFull = () =>
-    new Date().toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    });
 
   const fmtDate = (iso: string) =>
     new Date(iso + "T00:00:00").toLocaleDateString("ko-KR", {
@@ -40,6 +32,7 @@ export default function Home() {
     });
 
   const streak = (() => {
+    if (!mounted) return 0;
     const days = [...new Set(entries.map((e) => e.date))].sort().reverse();
     let s = 0,
       c = todayKey();
@@ -55,6 +48,15 @@ export default function Home() {
   })();
 
   useEffect(() => {
+    setMounted(true);
+    setTodayLabel(
+      new Date().toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long",
+      }),
+    );
     fetchEntries();
   }, []);
 
@@ -69,8 +71,6 @@ export default function Home() {
   }
 
   async function handleSave() {
-    console.log("clicked", text);
-
     if (!text.trim() || saving) return;
     setSaving(true);
 
@@ -91,14 +91,12 @@ export default function Home() {
       }
     }
 
-    console.log("before insert");
-
     const { error } = await supabase.from("entries").insert({
       date: todayKey(),
       text: text.trim(),
       image_url,
     });
-    console.log("after insert", error);
+
     if (!error) {
       setText("");
       setImageFile(null);
@@ -119,6 +117,8 @@ export default function Home() {
     e.target.value = "";
   }
 
+  if (!mounted) return null;
+
   return (
     <main
       style={{
@@ -128,7 +128,6 @@ export default function Home() {
         position: "relative",
       }}
     >
-      {/* 로고 */}
       <div
         style={{
           textAlign: "center",
@@ -161,7 +160,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 날짜 */}
       <div
         style={{
           fontSize: 11,
@@ -171,10 +169,9 @@ export default function Home() {
           textAlign: "center",
         }}
       >
-        {todayFull()}
+        {todayLabel}
       </div>
 
-      {/* 스트릭 */}
       <div
         style={{
           display: "flex",
@@ -223,7 +220,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 사진 업로드 */}
       <input
         type="file"
         accept="image/*"
@@ -249,33 +245,11 @@ export default function Home() {
         }}
       >
         {preview ? (
-          <>
-            <img
-              src={preview}
-              alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.28)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: 0,
-                transition: "opacity 0.2s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
-            >
-              <span
-                style={{ color: "#fff", fontSize: 12, letterSpacing: "0.1em" }}
-              >
-                사진 바꾸기
-              </span>
-            </div>
-          </>
+          <img
+            src={preview}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         ) : (
           <div style={{ textAlign: "center" }}>
             <svg
@@ -285,11 +259,7 @@ export default function Home() {
               fill="none"
               stroke="#aaa"
               strokeWidth="1"
-              style={{
-                marginBottom: 8,
-                display: "block",
-                margin: "0 auto 8px",
-              }}
+              style={{ display: "block", margin: "0 auto 8px" }}
             >
               <rect x="2" y="7" width="20" height="14" rx="2" />
               <circle cx="12" cy="14" r="3.5" />
@@ -308,7 +278,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* 텍스트 입력 */}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -344,7 +313,6 @@ export default function Home() {
         {text.length} / 100
       </div>
 
-      {/* 저장 버튼 */}
       <button
         onClick={handleSave}
         disabled={saving || !text.trim()}
@@ -368,7 +336,6 @@ export default function Home() {
         {saving ? "저장 중..." : "기록하기"}
       </button>
 
-      {/* 구분선 */}
       <div
         style={{
           display: "flex",
@@ -391,7 +358,6 @@ export default function Home() {
         <div style={{ flex: 1, height: "0.5px", background: "#e0e0dc" }} />
       </div>
 
-      {/* 피드 */}
       {loading ? (
         <div
           style={{
@@ -399,7 +365,6 @@ export default function Home() {
             padding: "3rem 0",
             fontSize: 12,
             color: "var(--color-muted)",
-            letterSpacing: "0.08em",
           }}
         >
           불러오는 중...
@@ -466,7 +431,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 토스트 */}
       {toast && (
         <div
           style={{
